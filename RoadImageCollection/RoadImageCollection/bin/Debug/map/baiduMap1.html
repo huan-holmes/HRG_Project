@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+	<style type="text/css">
+	body, html,#allmap {width: 100%;height: 100%;overflow: hidden;margin:0;font-family:"微软雅黑";}
+	</style>
+	<script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=U12mILhtjTORg01kEEfTvHBcurOtnxfw"></script>
+	<title>百度地图</title>
+</head>
+<body>
+	<div id="allmap"></div>
+	<div id="mouselng"></div>
+	<div id="mouselat"></div>
+</body>
+</html>
+<script type="text/javascript">
+// display map
+var map = new BMap.Map("allmap");            // 创建Map实例
+var point = new BMap.Point(119.5445314770, 32.4044864537);    // 创建点坐标
+map.centerAndZoom(point,15);                     // 初始化地图,设置中心点坐标和地图级别。
+map.setCurrentCity("扬州");
+map.enableScrollWheelZoom(true);
+var myIcon = new BMap.Icon("http://api.map.baidu.com/img/markers.png", new BMap.Size(22, 24));
+var marker = new BMap.Marker(point,{icon:myIcon});
+map.addOverlay(marker);                            
+
+// display gps while move mouse
+map.addEventListener("mousemove", GetlngAndlat);
+function GetlngAndlat(e){
+	if(e.point.lng != null){
+		document.getElementById("mouselng").innerHTML = e.point.lng;
+		document.getElementById("mouselat").innerHTML = e.point.lat;
+	}
+}
+
+function mapPoint(position_str) {
+	var position_list = position_str.split(",");
+	var point = new BMap.Point(position_list[0], position_list[1]);
+	map.centerAndZoom(point, 15);
+	var myIcon = new BMap.Icon("http://developer.baidu.com/map/jsdemo/img/car.png", new BMap.Size(52,26));
+	var marker = new BMap.Marker(point,{icon:myIcon});
+	map.addOverlay(marker); 
+}
+
+// display line 
+function mapTrajectory(position_str) {
+	var position_list = position_str.split("|");
+	var positions_list = [];
+	for (var i = 0; i < position_list.length; i++) {
+		var p1 = position_list[i].split(",");
+		var point1 = new BMap.Point(p1[0], p1[1]);
+		positions_list.push(point1);
+	};
+	var sy = new BMap.Symbol(BMap_Symbol_SHAPE_BACKWARD_OPEN_ARROW, {
+		scale: 0.6,//图标缩放大小
+		strokeColor:'black',//设置矢量图标的线填充颜色
+		strokeWeight: '2'//设置线宽
+	});
+	var icons = new BMap.IconSequence(sy, '10', '30');
+	var polyline = new BMap.Polyline(positions_list, {
+	
+                enableEditing: false,//是否启用线编辑，默认为false
+                enableClicking: true,//是否响应点击事件，默认为true
+                icons:icons,
+                strokeWeight:'8',//折线的宽度，以像素为单位
+                strokeOpacity: 0.7,//折线的透明度，取值范围0 - 1
+                strokeColor:"#1296db" //折线颜色
+	});     
+	map.addOverlay(polyline);
+}
+</script>

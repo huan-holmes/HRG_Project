@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+	<style type="text/css">
+	body, html,#allmap {width: 100%;height: 100%;overflow: hidden;margin:0;font-family:"微软雅黑";}
+	</style>
+	<script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=U12mILhtjTORg01kEEfTvHBcurOtnxfw"></script>
+	<title>地图展示</title>
+</head>
+<body>
+	<div id="allmap"></div>
+</body>
+</html>
+<script type="text/javascript">
+
+    //百度地图API功能
+    function loadJScript() {
+		var script = document.createElement("script");
+		script.type = "text/javascript";
+		script.src = "http://api.map.baidu.com/api?v=2.0&ak=U12mILhtjTORg01kEEfTvHBcurOtnxfw&callback=init";
+		document.body.appendChild(script);
+        // console.log("我是loadJScript"); 
+	}
+
+    //HTTP请求
+    function get(url,params,callback){
+    var request=new XMLHttpRequest();
+    request.open("GET",url+'?'+params);
+    request.setRequestHeader('content-type', 'application/json'); // 设置 HTTP 头，数据指定为 JSON 
+    request.onreadystatechange = function(e) {
+      if (this.readyState == 4 && this.status == 200) {
+          callback(request.responseText);
+        //   console.log("request succeed."+request.responseText);
+      }
+     }
+    request.send(null);
+    }
+
+
+    //初始化地图
+	function init() {
+
+        // console.log("我是init"); 
+
+		var map = new BMap.Map("allmap",{enableMapClick:false,maxZoom:20});            // 创建Map实例
+	    var pointA1 = new BMap.Point(121.334574,31.200171);
+		//先清除所有内容
+        map.clearOverlays();              
+		map.enableScrollWheelZoom();                 //启用滚轮放大缩小  
+        
+
+    //设置折线箭头参数
+    var sy = new BMap.Symbol(BMap_Symbol_SHAPE_BACKWARD_OPEN_ARROW, {
+    scale: 0.6,//图标缩放大小
+    strokeColor:'#fff',//设置矢量图标的线填充颜色
+    strokeWeight: '2'//设置线宽
+    });
+    var icons = new BMap.IconSequence(sy, '10', '30');
+
+    //坐标转换完之后的回调函数
+    translateCallback = function (data){
+    //设置地图中心
+    map.centerAndZoom(data.points[0],19);
+    //创建自定义图标
+    var myIcon = new BMap.Icon("C:/VSCode/WorkStation/point3.png", new BMap.Size(16,16));
+    //遍历所有的点
+    for(var index in data.points)
+    {   
+        // 创建标注
+        var marker2 = new BMap.Marker(data.points[index],{icon:myIcon});  
+        // 将标注添加到地图中 
+        map.addOverlay(marker2);             
+    }
+     // 创建polyline对象
+        //定义折线
+        var polyline = new BMap.Polyline(data.points,
+            {
+                enableEditing: false,//是否启用线编辑，默认为false
+                enableClicking: true,//是否响应点击事件，默认为true
+                icons:[icons],
+                strokeWeight:'8',//折线的宽度，以像素为单位
+                strokeOpacity: 0.7,//折线的透明度，取值范围0 - 1
+                strokeColor:"#1296db" //折线颜色
+            });
+        map.addOverlay(polyline);
+    }
+
+
+    var PointArr = new Array();
+        var point0 = new BMap.Point(121.466600, 31.220800);//创建一个地理点坐标
+        var point1 = new BMap.Point(121.470000, 31.221600);//创建一个地理点坐标
+        var point2 = new BMap.Point(121.468300, 31.222000);//创建一个地理点坐标
+        var point3 = new BMap.Point(121.483300, 31.235000);//创建一个地理点坐标
+        var point4 = new BMap.Point(121.482600, 31.237100);//创建一个地理点坐标
+        var point5 = new BMap.Point(121.482300, 31.238500);//创建一个地理点坐标
+        var point6 = new BMap.Point(121.478100, 31.242300);//创建一个地理点坐标    
+ 
+        PointArr.push(point0);
+        PointArr.push(point1);
+        PointArr.push(point2);
+        PointArr.push(point3);
+        PointArr.push(point4);
+        PointArr.push(point5);
+        PointArr.push(point6);
+        //转化为百度地图的坐标
+        var convertor = new BMap.Convertor();
+        convertor.translate(PointArr,1,5,translateCallback);
+    }  
+	window.onload = loadJScript;  //异步加载地图
+
+
+</script>

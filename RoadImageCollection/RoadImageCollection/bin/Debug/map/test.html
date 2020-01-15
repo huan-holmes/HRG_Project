@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+	<style type="text/css">
+	body, html,#allmap {width: 100%;height: 100%;overflow: hidden;margin:0;font-family:"微软雅黑";}
+	</style>
+	<script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=U12mILhtjTORg01kEEfTvHBcurOtnxfw"></script>
+	<title>百度地图</title>
+</head>
+<body>
+	<div id="allmap"></div>
+	<div id="mouselng"></div>
+	<div id="mouselat"></div>
+</body>
+</html>
+<script type="text/javascript">
+// display map
+var map = new BMap.Map("allmap");            // 创建Map实例
+var point = new BMap.Point(119.5445314770, 32.4044864537);    // 创建点坐标
+map.centerAndZoom(point,15);                     // 初始化地图,设置中心点坐标和地图级别。
+map.setCurrentCity("扬州");
+map.enableScrollWheelZoom(true);
+
+map.addControl(new BMap.ScaleControl()); // 添加比例尺控件
+//var myIcon = new BMap.Icon("http://api.map.baidu.com/img/markers.png", new BMap.Size(22, 24));
+//var marker = new BMap.Marker(point,{icon:myIcon});
+//map.addOverlay(marker);                            
+
+// display gps while move mouse
+map.addEventListener("mousemove", GetlngAndlat);
+function GetlngAndlat(e){
+	if(e.point.lng != null){
+		document.getElementById("mouselng").innerHTML = e.point.lng;
+		document.getElementById("mouselat").innerHTML = e.point.lat;
+	}
+}
+var carMk;//先将终点坐标展示的mark对象定义
+var drivingPoint = new BMap.Icon('http://developer.baidu.com/map/jsdemo/img/car.png', new BMap.Size(52,26), {
+		anchor : new BMap.Size(27, 13),
+		imageSize:new BMap.Size(52,26)
+    });
+	   var terminalPoint = new BMap.Icon('endMap.png', new BMap.Size(45,45), {
+            anchor : new BMap.Size(20, 45),
+            imageSize:new BMap.Size(45,45)
+        });
+// display line 
+function mapPointDraw(position_str) {
+	var position_list = position_str.split("|");
+	var positions_list = [];
+	for (var i = 0; i < position_list.length; i++) {
+		var p1 = position_list[i].split(",");
+		var point1 = new BMap.Point(p1[0], p1[1]);
+		positions_list.push(point1);
+	};
+	//map.centerAndZoom(position_list, 13);// 根据经纬度显示地图的范围
+    //map.setViewport(position_list);// 根据提供的地理区域或坐标设置地图视野
+	addStartMarker(new BMap.Point(position_list[0].lng, position_list[0].lat),'起点',map);
+	
+	
+	 var i = 0;
+        var interval = setInterval(function () {
+            if (i >= position_list.length) {
+                clearInterval(interval);
+                return;
+            }
+            drowLine(map,position_list[i],position_list[i+1]);//画线调用
+            i = i + 1;
+        }, 1000);
+	
+
+	
+}
+        function drowLine(map,PointArr,PointArrNext) {
+            if(PointArrNext!=undefined) {
+                var polyline = new BMap.Polyline(
+                    [
+                        new BMap.Point(PointArr.lng, PointArr.lat),
+                        new BMap.Point(PointArrNext.lng, PointArrNext.lat)
+                    ],
+                    {
+                        strokeColor: "red",
+                        strokeWeight: 7,
+                        strokeOpacity: 1
+                    });   //创建折线
+                map.addOverlay(polyline);
+                addMarkerEnd(new BMap.Point(PointArrNext.lng, PointArrNext.lat), '小车行驶', map, PointArrNext, new BMap.Point(PointArr.lng, PointArr.lat));//添加图标
+            }else {
+                addMarkerEnd(new BMap.Point(PointArr.lng, PointArr.lat), '终点', map);//添加终点图标
+            }
+        }
+		 function addStartMarker(point, name,mapInit) {
+            if(name=="起点"){
+                var myIcon = new BMap.Icon("startMap.png", new BMap.Size(45,45),{
+                    anchor: new BMap.Size(20, 45),//这句表示图片相对于所加的点的位置mapStart
+                    imageSize:new BMap.Size(45, 45)//图标所用的图片的大小，此功能的作用等同于CSS中的background-size属性。可用于实现高清屏的高清效果
+                    // offset: new BMap.Size(-10, 45), // 指定定位位置
+                    // imageOffset: new BMap.Size(0, 0 - 10 * 25) // 设置图片偏移
+                });
+                window.marker = new BMap.Marker(point,{icon:myIcon});  // 创建标注
+                mapInit.addOverlay(marker);               // 将标注添加到地图中
+                //marker.setAnimation(BMAP_ANIMATION_BOUNCE); //跳动的动画
+            }
+        }
+		 function addMarkerEnd(point, name,mapInit,trackUnit,prePoint) {
+            if(name=="小车行驶"){
+                if(carMk){//先判断第一次进来的时候这个值有没有定义，有的话就清除掉上一次的。然后在进行画图标。第一次进来时候没有定义也就不走这块，直接进行画图标
+                    mapInit.removeOverlay(carMk);
+                }
+                carMk = new BMap.Marker(point,{icon:drivingPoint});  // 创建标注
+                carMk.setRotation(trackUnit.route);//trackUnit.route
+                //getAngle(point,prePoint);// js求解两点之间的角度
+                carMk.setRotation(getAngle(point,prePoint)-90);// 旋转的角度
+                mapInit.addOverlay(carMk);               // 将标注添加到地图中
+                //carMk.setAnimation(BMAP_ANIMATION_BOUNCE); //跳动的动画
+            }else {
+                mapInit.removeOverlay(carMk);
+                carMk = new BMap.Marker(point,{icon:terminalPoint});  // 创建标注
+                mapInit.addOverlay(carMk);
+            }
+        }
+        //获得角度的函数
+		function getAngle(n,next){
+            var ret
+            var w1 = n.lat/180 * Math.PI
+            var j1 = n.lng/180 * Math.PI
+
+            var w2 = next.lat/180 * Math.PI
+            var j2 = next.lng/180 * Math.PI
+
+            ret = 4 * Math.pow(Math.sin((w1 - w2) / 2), 2) - Math.pow(Math.sin((j1 - j2) / 2) * (Math.cos(w1) - Math.cos(w2)), 2);
+            ret = Math.sqrt(ret);
+
+            // var temp = Math.sin(Math.abs(j1 - j2) / 2) * (Math.cos(w1) + Math.cos(w2));
+            var temp = Math.sin((j1 - j2) / 2) * (Math.cos(w1) + Math.cos(w2));
+           
+            ret = ret/temp;
+
+            ret = Math.atan(ret) / Math.PI * 180 ;
+            ret += 90;
+
+            // 这里用如此臃肿的if..else是为了判定追踪单个点的具体情况,从而调整ret的值
+            if(j1-j2 < 0){
+                // console.log('j1<j2')
+                if(w1-w2 < 0){
+                    // console.log('w1<w2')
+                    ret;
+                }else{
+                    // console.log('w1>w2')
+                    ret = -ret+180;
+                }
+            }else{
+                // console.log('j1>j2')
+                if(w1-w2 < 0){
+                    // console.log('w1<w2')
+                    ret = 180+ret;
+                }else{
+                    // console.log('w1>w2')
+                    ret = -ret;
+                }
+            }
+			return ret ;
+		}
+</script>
