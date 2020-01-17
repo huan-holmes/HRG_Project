@@ -5,6 +5,8 @@ import time
 import utm
 import math
 import matplotlib.pyplot as plt
+import heapq
+import pandas as pd
 
 COLOR_LIST = ["k", "r", "b", "g", "m", "c", "y"]
 
@@ -18,6 +20,10 @@ class GpsDataAnalysis(object):
         self.vel_list = list()
         self.heading_list = list()
         self.position_list = list()
+        self.point_list_x = list()
+        self.point_list_y = list()
+        self.point_list_x_2 = list()
+        self.point_list_y_2 = list()
 
         
     def process_data(self):
@@ -26,7 +32,56 @@ class GpsDataAnalysis(object):
         self.transform2LonLat()
         self.transform2Utm()
         self.position_process()
+        self.compute_distance()
+        #self.position_process()
         self.plot_data()
+
+    def compute_distance(self):
+        line_1 = self.utm_list[0]
+        line_2 = self.utm_list[1]
+        length_1 = len(line_1["x"])
+        length_2 = len(line_2["x"])
+        distance_point2line_list = list()
+        distance_point2line_out_list = list()
+        index_list = list()
+        for i in range(length_1):
+            point1 = (line_1["x"][i], line_1["y"][i])
+            distance_list = list()
+            for j in range(length_2):
+                point2 = (line_2["x"][j], line_2["y"][j])
+                distance_list.append(self.compute_distanceWithoutLine(point1, point2))
+            l = list()
+            min_index = distance_list.index(min(distance_list))
+            l.append(min_index)
+            distance_list[min_index] = 100
+            min_index = distance_list.index(min(distance_list))
+            l.append(min_index)
+            l.sort()
+            p1 = (line_2["x"][l[0]], line_2["y"][l[0]])
+            p2 = (line_2["x"][l[1]], line_2["y"][l[1]])
+            
+            A, B, C = self.compute_line(p1, p2)
+            distance = self.compute_distanceWithLine(A, B, C, point1)
+            distance_point2line_list.append(distance)
+            if distance > 3.75:
+                self.point_list_x_2.append(line_2["x"][l[0]])
+                self.point_list_y_2.append(line_2["y"][l[0]])
+                self.point_list_x_2.append(line_2["x"][l[1]])
+                self.point_list_y_2.append(line_2["y"][l[1]])
+                distance_point2line_out_list.append(distance)
+                self.point_list_x.append(line_1["x"][i])
+                self.point_list_y.append(line_1["y"][i])
+                index_list.append(i) 
+                print(point1[0] - line_2["x"][l[0]])
+                print(point1[1] - line_2["y"][l[0]])
+                print(point1[0] - line_2["x"][l[1]])
+                print(point1[1] - line_2["y"][l[1]])
+        print(length_1, len(distance_point2line_out_list), len(self.point_list_x_2))
+        print(distance_point2line_out_list)
+        df = pd.DataFrame(distance_point2line_out_list)
+        print(df.describe())
+
+
     def position_process(self):
         for gnrmc_dict in self.gnrmc_list:
             time_list = list()
@@ -39,15 +94,15 @@ class GpsDataAnalysis(object):
                             float(value[i+1][:2])-float(value[i][:2]))*3600 + \
                                 (float(value[i+1][2:4])-float(value[i][2:4]))*60 + \
                                     (float(value[i+1][4:])-float(value[i][4:])))
-                    self.time_list.append(time_list)
                 if key == "vel":
                     for vel in value:
                         vel_list.append(float(vel) * 1.852 / 3.6)
-                    self.vel_list.append(vel_list)
                 if key == "angle":
                     for angle in value:
                         heading_list.append(angle)
-                    self.heading_list.append(heading_list)
+            self.vel_list.append(vel_list)
+            self.time_list.append(time_list)
+            self.heading_list.append(heading_list)
         for i in range(len(self.utm_list)):
             utm_dict = self.utm_list[i]
             time_list = self.time_list[i]
@@ -62,7 +117,7 @@ class GpsDataAnalysis(object):
                     position_dict["x"].append(X)
                     for i in range(len(value)-1):
                         if heading_list[i]:
-                            X = value[i] + math.sin(float(heading_list[i])/180 * math.pi) * vel_list[i] * time_list[i]
+                            X = X + math.sin(float(heading_list[i])/180 * math.pi) * vel_list[i] * time_list[i]
                             position_dict["x"].append(X)
                         else:
                             position_dict["x"].append(value[i])
@@ -70,10 +125,10 @@ class GpsDataAnalysis(object):
                     position_dict["x"].append(value[-1])
                 if key == "y":
                     Y = value[0]
-                    position_dict["y"].append(value[i])
+                    position_dict["y"].append(Y)
                     for i in range(len(value)-1):
                         if heading_list[i]:
-                            Y = value[i] + math.cos(float(heading_list[i])/180 * math.pi) * vel_list[i] * time_list[i]
+                            Y = Y + math.cos(float(heading_list[i])/180 * math.pi) * vel_list[i] * time_list[i]
                             position_dict["y"].append(Y)
                         else:
                             position_dict["y"].append(value[i])
@@ -136,7 +191,7 @@ class GpsDataAnalysis(object):
                     x_list = value
                 if (key == "y"):
                     y_list = value
-            plt.plot(x_list, y_list, COLOR_LIST[i]+"--")
+            plt.plot(x_list, y_list, COLOR_LIST[i])
         for i in range(len(self.position_list)):
             position_dict = self.position_list[i]
             for key, value in position_dict.items():
@@ -144,9 +199,11 @@ class GpsDataAnalysis(object):
                     xx_list = value
                 if (key == "y"):
                     yy_list = value
-           # plt.plot(xx_list, yy_list, COLOR_LIST[i]+"o--")
-        labels = ["origin_data(-)", "compute_data(-o-)"]
-        plt.legend(loc=2, labels=labels)
+            #plt.plot(xx_list, yy_list, COLOR_LIST[i]+"o--")
+        plt.plot(self.point_list_x, self.point_list_y, "ro")
+        plt.plot(self.point_list_x_2, self.point_list_y_2, "ko")
+        #labels = ["origin_data(-)", "compute_data(-o-)"]
+        #plt.legend(loc=2, labels=labels)
         plt.show()
     def set_gnrmc_list(self, read_file):
         print("====set_gnrmc_list()====")
