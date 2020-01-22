@@ -7,8 +7,8 @@ import math
 import matplotlib.pyplot as plt
 import heapq
 import pandas as pd
-
-COLOR_LIST = ["k", "r", "b", "g", "m", "c", "y"]
+COLOR_LIST_1 = ["k", "k", "k", "k", "k", "k", "k", "k", "k", "k", "k", "k"]
+COLOR_LIST_2 = ["k", "r", "b", "g", "m", "c", "y"]
 
 class GpsDataAnalysis(object):
     def __init__(self, directory_path):
@@ -24,7 +24,12 @@ class GpsDataAnalysis(object):
         self.point_list_y = list()
         self.point_list_x_2 = list()
         self.point_list_y_2 = list()
-
+        self.max_error_list_x = list()
+        self.max_error_list_y = list()
+        self.max_error_lat_x = list()
+        self.max_error_lat_y = list()
+        self.max_error_lon_x = list()
+        self.max_error_lon_y = list()
         
     def process_data(self):
         print("====process_data()====")
@@ -32,9 +37,41 @@ class GpsDataAnalysis(object):
         self.transform2LonLat()
         self.transform2Utm()
         self.position_process()
-        self.compute_distance()
-        #self.position_process()
+        self.compute_error()
+        #self.compute_distance()
         self.plot_data()
+    
+    def compute_error(self):
+        for i in range(len(self.utm_list)):
+            utm_dict = self.utm_list[i]
+            position_dict = self.position_list[i]
+            lon_error = list()
+            lat_error = list()
+            position_error = list()
+            p_count = 0
+            lat_count = 0
+            lon_count = 0
+            for j in range(len(utm_dict["x"])):
+                position_error.append(self.compute_distanceWithoutLine((utm_dict["x"][j], utm_dict["y"][j]), (position_dict["x"][j], position_dict["y"][j])))
+                lon_error.append(abs(utm_dict["x"][j] - position_dict["x"][j]))
+                lat_error.append(abs(utm_dict["y"][j] - position_dict["y"][j]))
+                if self.compute_distanceWithoutLine((utm_dict["x"][j], utm_dict["y"][j]), (position_dict["x"][j], position_dict["y"][j])) < 0.01:
+                    p_count += 1
+                if abs(utm_dict["x"][j] - position_dict["x"][j]) < 0.018000:
+                    lon_count += 1
+                if abs(utm_dict["y"][j] - position_dict["y"][j]) < 0.018000:
+                    lat_count += 1
+            print(p_count, lon_count, lat_count)
+            index = position_error.index(max(position_error))
+            lon_index = lon_error.index(max(lon_error))
+            lat_index = lat_error.index(max(lat_error))
+            self.max_error_list_x.append(utm_dict["x"][index])
+            self.max_error_list_y.append(utm_dict["y"][index])
+            self.max_error_lon_x.append(utm_dict["x"][lon_index])
+            self.max_error_lon_y.append(utm_dict["y"][lon_index])
+            self.max_error_lat_x.append(utm_dict["x"][lat_index])
+            self.max_error_lat_y.append(utm_dict["y"][lat_index])
+            
 
     def compute_distance(self):
         line_1 = self.utm_list[0]
@@ -80,6 +117,7 @@ class GpsDataAnalysis(object):
         print(distance_point2line_out_list)
         df = pd.DataFrame(distance_point2line_out_list)
         print(df.describe())
+        
 
 
     def position_process(self):
@@ -117,7 +155,7 @@ class GpsDataAnalysis(object):
                     position_dict["x"].append(X)
                     for i in range(len(value)-1):
                         if heading_list[i]:
-                            X = X + math.sin(float(heading_list[i])/180 * math.pi) * vel_list[i] * time_list[i]
+                            X = value[i] + math.sin(float(heading_list[i])/180 * math.pi) * vel_list[i] * time_list[i]
                             position_dict["x"].append(X)
                         else:
                             position_dict["x"].append(value[i])
@@ -128,7 +166,7 @@ class GpsDataAnalysis(object):
                     position_dict["y"].append(Y)
                     for i in range(len(value)-1):
                         if heading_list[i]:
-                            Y = Y + math.cos(float(heading_list[i])/180 * math.pi) * vel_list[i] * time_list[i]
+                            Y = value[i] + math.cos(float(heading_list[i])/180 * math.pi) * vel_list[i] * time_list[i]
                             position_dict["y"].append(Y)
                         else:
                             position_dict["y"].append(value[i])
@@ -139,6 +177,7 @@ class GpsDataAnalysis(object):
         print("====read_data()====")
         for root, dirs, files in os.walk(self.directory_path):
             files.sort()
+            print(files)
             for file in files[:]:
                 file_path = root + file
                 with open(file_path, "r", encoding='utf-8') as read_file:
@@ -181,9 +220,14 @@ class GpsDataAnalysis(object):
     def plot_data(self):
         print("====plot_data()====")
         plt.figure()
-        plt.title("2020-01-09")
+        plt.title(time.strftime('%Y-%m-%d',time.localtime(time.time())))
         plt.xlabel("x")
         plt.ylabel("y")
+        start_x_list = list()
+        start_y_list = list()
+        plt.plot(self.max_error_list_x, self.max_error_list_y, "ro")
+        plt.plot(self.max_error_lon_x, self.max_error_lon_y, "go")
+        plt.plot(self.max_error_lat_x, self.max_error_lat_y, "bo")
         for i in range(len(self.utm_list)):
             utm_dict = self.utm_list[i]
             for key, value in utm_dict.items():
@@ -191,7 +235,10 @@ class GpsDataAnalysis(object):
                     x_list = value
                 if (key == "y"):
                     y_list = value
-            plt.plot(x_list, y_list, COLOR_LIST[i])
+            start_x_list.append(x_list[0])
+            start_y_list.append(y_list[0])
+            plt.plot(x_list, y_list, COLOR_LIST_1[i])
+            
         for i in range(len(self.position_list)):
             position_dict = self.position_list[i]
             for key, value in position_dict.items():
@@ -200,10 +247,11 @@ class GpsDataAnalysis(object):
                 if (key == "y"):
                     yy_list = value
             #plt.plot(xx_list, yy_list, COLOR_LIST[i]+"o--")
-        plt.plot(self.point_list_x, self.point_list_y, "ro")
-        plt.plot(self.point_list_x_2, self.point_list_y_2, "ko")
-        #labels = ["origin_data(-)", "compute_data(-o-)"]
-        #plt.legend(loc=2, labels=labels)
+        
+        
+        #plt.plot(start_x_list, start_y_list, "go")
+        labels = ["position_error", "lon_error", "lat_error"]
+        plt.legend(loc=2, labels=labels)
         plt.show()
     def set_gnrmc_list(self, read_file):
         print("====set_gnrmc_list()====")
@@ -256,7 +304,7 @@ class GpsDataAnalysis(object):
         return A, B, C
     
 def main():
-    directory_path = "E:\\data\\2020-01-16\\"
+    directory_path = "E:\\data\\data\\"
     gpsDataAnalysis = GpsDataAnalysis(directory_path)
     gpsDataAnalysis.process_data()
     
